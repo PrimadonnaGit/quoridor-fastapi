@@ -64,7 +64,7 @@ class ConnectionManager:
             return
 
     async def disconnect(self, websocket: WebSocket):
-        self.room_info[self.client_info[websocket]['room_id']].remove(websocket)
+        # self.room_info[self.client_info[websocket]['room_id']].remove(websocket)
         await websocket.close()
 
     async def broadcast(self, message: str, room_id: int):
