@@ -108,7 +108,8 @@ class ConnectionManager:
                     }).to_dict()
                 )
                 await self.broadcast_json(
-                    Response("server_info", 301).to_dict()
+                    Response("server_info", 301).to_dict(),
+                    room_id
                 )
                 # broadcast
             else:
@@ -124,6 +125,10 @@ class ConnectionManager:
 
     async def disconnect(self, websocket: WebSocket):
         self.room_info[self.client_info[websocket]['room_id']].remove(websocket)
+        await self.broadcast_json(
+            Response("error", 202).to_dict(),
+            self.client_info[websocket]['room_id']
+        )
 
     async def broadcast(self, message: str, room_id: int):
         for room_user in self.room_info[room_id]:
