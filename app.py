@@ -64,8 +64,7 @@ class ConnectionManager:
             return
 
     async def disconnect(self, websocket: WebSocket):
-        # self.room_info[self.client_info[websocket]['room_id']].remove(websocket)
-        await websocket.close()
+        self.room_info[self.client_info[websocket]['room_id']].remove(websocket)
 
     async def broadcast(self, message: str, room_id: int):
         for room_user in self.room_info[room_id]:
@@ -110,6 +109,9 @@ async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_id: int):
 
 async def start_game(websocket: WebSocket, room_id: int):
     data = await websocket.receive_text()
+    if len(manager.room_info[room_id]) != 2:
+        await websocket.send_text("Another player has left the game. Start a new game")
+        return
     if manager.client_info[websocket]['turn']:
         manager.game_history[room_id].append(data)
         for client in manager.room_info[room_id]:
