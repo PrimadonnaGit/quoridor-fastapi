@@ -46,37 +46,38 @@ app.add_middleware(
 # 		"message": "invalid move"
 # 	}
 # }
-
-class Response:
-    def __init__(self, message_type: str, status_code: int, data: dict = None, client: dict = None):
-        if message_type == "server_info":
-            self.message_type = message_type
-            self.code = status_code
-            self.message = STATUS_CODE[status_code]
-            self.data = data
-        elif message_type == "error":
-            self.message_type = message_type
-            self.code = status_code
-            self.message = STATUS_CODE[status_code]
+class ServerInfoResponse:
+    def __init__(self, status_code: int, data: dict = None):
+        self.message_type = "server_info"
+        self.code = status_code
+        self.message = STATUS_CODE[status_code]
+        self.data = data
 
     def to_dict(self):
-        if self.message_type == "server_info":
-            return {
-                "message_type": self.message_type,
-                "server_info": {
-                    "code": self.code,
-                    "message": self.message,
-                    "data": self.data,
-                }
+        return {
+            "message_type": self.message_type,
+            "server_info": {
+                "code": self.code,
+                "message": self.message,
+                "data": self.data,
             }
-        elif self.message_type == "error":
-            return {
-                "message_type": self.message_type,
-                "error": {
-                    "code": self.code,
-                    "message": self.message,
-                }
+        }
+
+
+class ErrorResponse:
+    def __init__(self, status_code: int):
+        self.message_type = "error"
+        self.code = status_code
+        self.message = STATUS_CODE[status_code]
+
+    def to_dict(self):
+        return {
+            "message_type": self.message_type,
+            "error": {
+                "code": self.code,
+                "message": self.message,
             }
+        }
 
 
 class ConnectionManager:
@@ -91,8 +92,9 @@ class ConnectionManager:
         self.room_info[rood_id] = [websocket]
         self.client_info[websocket] = {'id': str(uuid.uuid4()), 'turn': True, 'room_id': rood_id}
         self.game_history[rood_id] = []
-        response = Response("server_info", 102, manager.client_info[websocket]).to_dict()
-        await websocket.send_json(response)
+        await websocket.send_json(
+            ServerInfoResponse(102, manager.client_info[websocket]).to_dict()
+        )
 
     async def connect(self, websocket: WebSocket, room_id: int):
         await websocket.accept()
@@ -101,34 +103,29 @@ class ConnectionManager:
                 self.room_info[room_id].append(websocket)
                 self.client_info[websocket] = {'id': str(uuid.uuid4()), 'turn': False, 'room_id': room_id}
                 await websocket.send_json(
-                    Response("server_info", 102, manager.client_info[websocket]).to_dict()
+                    ServerInfoResponse(102, manager.client_info[websocket]).to_dict()
                 )
                 await self.broadcast_json(
-                    Response("server_info", 301).to_dict(),
+                    ServerInfoResponse(301).to_dict(),
                     room_id
                 )
-                # broadcast
             else:
                 await websocket.send_json(
-                    Response("error", 100).to_dict()
+                    ErrorResponse(100).to_dict()
                 )
                 return
         else:
             await websocket.send_json(
-                Response("error", 101).to_dict()
+                ErrorResponse(101).to_dict()
             )
             return
 
     async def disconnect(self, websocket: WebSocket):
         self.room_info[self.client_info[websocket]['room_id']].remove(websocket)
         await self.broadcast_json(
-            Response("error", 202).to_dict(),
+            ErrorResponse(202).to_dict(),
             self.client_info[websocket]['room_id']
         )
-
-    async def broadcast(self, message: str, room_id: int):
-        for room_user in self.room_info[room_id]:
-            await room_user.send_text(message)
 
     async def broadcast_json(self, message: dict, room_id: int):
         for room_user in self.room_info[room_id]:
@@ -153,7 +150,10 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.new_connection(websocket)
     try:
         while True:
-            await start_game(websocket, manager.client_info[websocket]['room_id'])
+            await start_game(
+                websocket,
+                manager.client_info[websocket]['room_id'],
+            )
     except Exception as e:
         print(e)
     finally:
@@ -165,7 +165,10 @@ async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_id: int):
     await manager.connect(websocket, room_id)
     try:
         while True:
-            await start_game(websocket, room_id)
+            await start_game(
+                websocket,
+                room_id,
+            )
     except Exception as e:
         print(e)
     finally:
@@ -174,11 +177,6 @@ async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_id: int):
 
 async def start_game(websocket: WebSocket, room_id: int):
     data = await websocket.receive_text()
-    # if len(manager.room_info[room_id]) != 2:
-    #     await websocket.send_json(
-    #         Response("error", 202).to_dict(),
-    #     )
-    #     return
     if manager.client_info[websocket]['turn']:
         manager.game_history[room_id].append(data)
         for client in manager.room_info[room_id]:
@@ -191,11 +189,11 @@ async def start_game(websocket: WebSocket, room_id: int):
                             manager.client_info[cli]['turn'] = True
                 except json.JSONDecodeError:
                     await websocket.send_json(
-                        Response("error", 203).to_dict(),
+                        ErrorResponse(203).to_dict(),
                     )
     else:
         await websocket.send_json(
-            Response("error", 200).to_dict(),
+            ErrorResponse(200).to_dict(),
         )
 
 
