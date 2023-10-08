@@ -121,4 +121,4 @@ async def start_game(websocket: WebSocket, room_id: int):
         await websocket.send_text("Not your turn")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host='0.0.0.0', port=8000)
+    uvicorn.run(app, port=8000)
