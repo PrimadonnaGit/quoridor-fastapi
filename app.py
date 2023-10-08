@@ -53,8 +53,7 @@ class Response:
             self.message_type = message_type
             self.code = status_code
             self.message = STATUS_CODE[status_code]
-            if data is not None:
-                self.data = data
+            self.data = data
         elif message_type == "error":
             self.message_type = message_type
             self.code = status_code
