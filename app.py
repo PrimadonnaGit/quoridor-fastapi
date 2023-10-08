@@ -179,7 +179,9 @@ async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_id: int):
 async def start_game(websocket: WebSocket, room_id: int):
     data = await websocket.receive_text()
     if len(manager.room_info[room_id]) != 2:
-        await websocket.send_text("Another player has left the game. Start a new game")
+        await websocket.send_json(
+            Response("error", 202).to_dict(),
+        )
         return
     if manager.client_info[websocket]['turn']:
         manager.game_history[room_id].append(data)
@@ -193,7 +195,9 @@ async def start_game(websocket: WebSocket, room_id: int):
             if client != websocket:
                 manager.client_info[client]['turn'] = True
     else:
-        await websocket.send_text("Not your turn")
+        await websocket.send_json(
+            Response("error", 200).to_dict(),
+        )
 
 
 if __name__ == "__main__":
