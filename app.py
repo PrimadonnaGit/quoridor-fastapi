@@ -91,10 +91,10 @@ class ConnectionManager:
         self.room_info[rood_id] = [websocket]
         self.client_info[websocket] = {'id': str(uuid.uuid4()), 'turn': True, 'room_id': rood_id}
         self.game_history[rood_id] = []
-        error_response = Response("server_info", 102, {
+        response = Response("server_info", 102, {
             "room_id": rood_id,
         }).to_dict()
-        await websocket.send_json(error_response)
+        await websocket.send_json(response)
 
     async def connect(self, websocket: WebSocket, room_id: int):
         await websocket.accept()
@@ -102,15 +102,24 @@ class ConnectionManager:
             if len(self.room_info[room_id]) < 2:
                 self.room_info[room_id].append(websocket)
                 self.client_info[websocket] = {'id': str(uuid.uuid4()), 'turn': False, 'room_id': room_id}
-                await websocket.send_text(f"Connected to room {room_id}")
-                await websocket.send_text(f"Your id is {self.client_info[websocket]['id']}")
-                await self.broadcast("game start!", room_id)
-
+                await websocket.send_json(
+                    Response("server_info", 102, {
+                        "room_id": room_id,
+                    }).to_dict()
+                )
+                await self.broadcast_json(
+                    Response("server_info", 301).to_dict()
+                )
+                # broadcast
             else:
-                await websocket.send_text("Room is full. Connection denied.")
+                await websocket.send_json(
+                    Response("error", 100).to_dict()
+                )
                 return
         else:
-            await websocket.send_text("Room does not exist. Connection denied.")
+            await websocket.send_json(
+                Response("error", 101).to_dict()
+            )
             return
 
     async def disconnect(self, websocket: WebSocket):
@@ -119,6 +128,10 @@ class ConnectionManager:
     async def broadcast(self, message: str, room_id: int):
         for room_user in self.room_info[room_id]:
             await room_user.send_text(message)
+
+    async def broadcast_json(self, message: dict, room_id: int):
+        for room_user in self.room_info[room_id]:
+            await room_user.send_json(message)
 
 
 manager = ConnectionManager()
