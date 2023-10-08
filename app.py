@@ -180,7 +180,7 @@ async def start_game(websocket: WebSocket, room_id: int):
         manager.game_history[room_id].append(data)
         for client in manager.room_info[room_id]:
             if client != websocket:
-                await client.send_text(f"{manager.client_info[websocket]['id']}Player : {data}")
+                await client.send_json(data)
 
         # 상대 클라이언트의 턴으로 변경
         manager.client_info[websocket]['turn'] = False
