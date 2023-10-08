@@ -75,11 +75,11 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/test", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-@app.get("/health")
+@app.get("/")
 async def health_check():
     return {"status": "ok"}
 
