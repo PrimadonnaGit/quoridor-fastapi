@@ -1,3 +1,4 @@
+import json
 import random
 import uuid
 
@@ -8,6 +9,8 @@ from starlette.middleware.cors import CORSMiddleware
 
 from starlette.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
+
+from status import STATUS_CODE
 
 app = FastAPI()
 
@@ -23,20 +26,64 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# 응답 객체 (게임 상태와 에러 코드를 포함합니다.)
+# {
+# 	"message_type" : "user_action",
+#    #one of below
+# 	"user_action": {
+# 		…
+# 	},
+# 	"server_info": {
+# 		"code": 201,
+# 		"message": "room is created",
+# 		"data": {
+# 			…
+# 		}
+# 	},
+# 	"error" : {
+# 		"code": 100,
+# 		"message": "invalid move"
+# 	}
+# }
+
+class Response:
+    def __init__(self, message_type: str, status_code: int, data: dict = None, client: dict = None):
+        if message_type == "server_info":
+            self.message_type = message_type
+            self.code = status_code
+            self.message = STATUS_CODE[status_code]
+            self.data = data
+        elif message_type == "error":
+            self.message_type = message_type
+            self.code = status_code
+            self.message = STATUS_CODE[status_code]
+
+    def to_dict(self):
+        if self.message_type == "server_info":
+            return {
+                "message_type": self.message_type,
+                "server_info": {
+                    "code": self.code,
+                    "message": self.message,
+                    "data": self.data,
+                }
+            }
+        elif self.message_type == "error":
+            return {
+                "message_type": self.message_type,
+                "error": {
+                    "code": self.code,
+                    "message": self.message,
+                }
+            }
+
+
 class ConnectionManager:
     def __init__(self):
         self.client_info = {}
         self.room_info = {}
         self.game_history = {}
-
-    def check_available_room(self, room_id: int):
-        if room_id in self.room_info:
-            if len(self.room_info[room_id]) < 2:
-                return True
-            else:
-                return False, "Room is full. Connection denied."
-        else:
-            return False, "Room does not exist. Connection denied."
 
     async def new_connection(self, websocket: WebSocket):
         await websocket.accept()
@@ -44,7 +91,10 @@ class ConnectionManager:
         self.room_info[rood_id] = [websocket]
         self.client_info[websocket] = {'id': str(uuid.uuid4()), 'turn': True, 'room_id': rood_id}
         self.game_history[rood_id] = []
-        await websocket.send_text(f"Your room id is {rood_id}")
+        error_response = Response("server_info", 102, {
+            "room_id": rood_id,
+        }).to_dict()
+        await websocket.send_json(error_response)
 
     async def connect(self, websocket: WebSocket, room_id: int):
         await websocket.accept()
@@ -77,6 +127,7 @@ manager = ConnectionManager()
 @app.get("/test", response_class=HTMLResponse)
 async def read_root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
 
 @app.get("/")
 async def health_check():
@@ -125,6 +176,7 @@ async def start_game(websocket: WebSocket, room_id: int):
                 manager.client_info[client]['turn'] = True
     else:
         await websocket.send_text("Not your turn")
+
 
 if __name__ == "__main__":
     uvicorn.run(app, port=8000)
