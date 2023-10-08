@@ -91,9 +91,7 @@ class ConnectionManager:
         self.room_info[rood_id] = [websocket]
         self.client_info[websocket] = {'id': str(uuid.uuid4()), 'turn': True, 'room_id': rood_id}
         self.game_history[rood_id] = []
-        response = Response("server_info", 102, {
-            "room_id": rood_id,
-        }).to_dict()
+        response = Response("server_info", 102, manager.client_info[websocket]).to_dict()
         await websocket.send_json(response)
 
     async def connect(self, websocket: WebSocket, room_id: int):
@@ -103,9 +101,7 @@ class ConnectionManager:
                 self.room_info[room_id].append(websocket)
                 self.client_info[websocket] = {'id': str(uuid.uuid4()), 'turn': False, 'room_id': room_id}
                 await websocket.send_json(
-                    Response("server_info", 102, {
-                        "room_id": room_id,
-                    }).to_dict()
+                    Response("server_info", 102, manager.client_info[websocket]).to_dict()
                 )
                 await self.broadcast_json(
                     Response("server_info", 301).to_dict(),
@@ -178,22 +174,25 @@ async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_id: int):
 
 async def start_game(websocket: WebSocket, room_id: int):
     data = await websocket.receive_text()
-    if len(manager.room_info[room_id]) != 2:
-        await websocket.send_json(
-            Response("error", 202).to_dict(),
-        )
-        return
+    # if len(manager.room_info[room_id]) != 2:
+    #     await websocket.send_json(
+    #         Response("error", 202).to_dict(),
+    #     )
+    #     return
     if manager.client_info[websocket]['turn']:
         manager.game_history[room_id].append(data)
         for client in manager.room_info[room_id]:
             if client != websocket:
-                await client.send_json(json.loads(data))
-
-        # 상대 클라이언트의 턴으로 변경
-        manager.client_info[websocket]['turn'] = False
-        for client in manager.room_info[room_id]:
-            if client != websocket:
-                manager.client_info[client]['turn'] = True
+                try:
+                    await client.send_json(json.loads(data))
+                    manager.client_info[websocket]['turn'] = False
+                    for cli in manager.room_info[room_id]:
+                        if cli != websocket:
+                            manager.client_info[cli]['turn'] = True
+                except json.JSONDecodeError:
+                    await websocket.send_json(
+                        Response("error", 203).to_dict(),
+                    )
     else:
         await websocket.send_json(
             Response("error", 200).to_dict(),
