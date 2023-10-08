@@ -53,7 +53,8 @@ class Response:
             self.message_type = message_type
             self.code = status_code
             self.message = STATUS_CODE[status_code]
-            self.data = data
+            if data is not None:
+                self.data = data
         elif message_type == "error":
             self.message_type = message_type
             self.code = status_code
@@ -177,7 +178,7 @@ async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_id: int):
 
 
 async def start_game(websocket: WebSocket, room_id: int):
-    data = await websocket.receive_json()
+    data = await websocket.receive_text()
     if len(manager.room_info[room_id]) != 2:
         await websocket.send_json(
             Response("error", 202).to_dict(),
@@ -187,7 +188,7 @@ async def start_game(websocket: WebSocket, room_id: int):
         manager.game_history[room_id].append(data)
         for client in manager.room_info[room_id]:
             if client != websocket:
-                await client.send_json(data)
+                await client.send_json(json.loads(data))
 
         # 상대 클라이언트의 턴으로 변경
         manager.client_info[websocket]['turn'] = False

@@ -60,7 +60,7 @@
                 return;
             }
 
-            socket = new WebSocket("ws://qurido-soing.koyeb.app/ws/" + roomNumber);
+            socket = new WebSocket("wss://qurido-soing.koyeb.app/ws/" + roomNumber);
             socket.onopen = function(event) {
                 console.log("Connected to Room " + roomNumber);
             };
@@ -75,7 +75,7 @@
             };
         }
         function createRoom() {
-            socket = new WebSocket("ws://qurido-soing.koyeb.app/ws");
+            socket = new WebSocket("wss://qurido-soing.koyeb.app/ws");
             socket.onopen = function(event) {
                 console.log("Connected to Room " + roomNumber);
             };
