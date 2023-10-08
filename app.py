@@ -177,7 +177,7 @@ async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_id: int):
 
 
 async def start_game(websocket: WebSocket, room_id: int):
-    data = await websocket.receive_text()
+    data = await websocket.receive_json()
     if len(manager.room_info[room_id]) != 2:
         await websocket.send_json(
             Response("error", 202).to_dict(),
