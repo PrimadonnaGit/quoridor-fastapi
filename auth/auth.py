@@ -33,16 +33,22 @@ async def kakao_callback(code: str = None):
         raise HTTPException(status_code=400, detail="Missing authorization code")
 
     async with httpx.AsyncClient() as client:
-        token_response = await client.post(KAKAO_TOKEN_URL,
-                                           data={'grant_type': 'authorization_code',
-                                                 'client_id': CLIENT_ID,
-                                                 'redirect_uri': REDIRECT_URI,
-                                                 'code': code})
+        token_response = await client.post(
+            KAKAO_TOKEN_URL,
+            data={
+                "grant_type": "authorization_code",
+                "client_id": CLIENT_ID,
+                "redirect_uri": REDIRECT_URI,
+                "code": code,
+            },
+        )
         token_data = token_response.json()
 
     async with httpx.AsyncClient() as client:
-        user_response = await client.get('https://kapi.kakao.com/v2/user/me',
-                                         headers={'Authorization': f'Bearer {token_data["access_token"]}'})
+        user_response = await client.get(
+            "https://kapi.kakao.com/v2/user/me",
+            headers={"Authorization": f'Bearer {token_data["access_token"]}'},
+        )
         user_data = user_response.json()
 
     return {"message": "Kakao Login Successful!", "user_data": user_data}

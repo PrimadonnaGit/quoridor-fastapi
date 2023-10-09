@@ -22,7 +22,7 @@ def get_db_session():
 
 
 class User(Base):
-    __tablename__ = 'users'
+    __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
     nickname = Column(String, nullable=False)
@@ -38,7 +38,7 @@ def create_user(db: Session, user: User):
         nickname=user.nickname,
         profile_image=user.profile_image,
         email=user.email,
-        created_at=user.created_at
+        created_at=user.created_at,
     )
     db.add(user)
     db.commit()
@@ -47,4 +47,4 @@ def create_user(db: Session, user: User):
 
 
 def get_user(db: Session, user_id: int):
-    return db.query(User).filter(User.id==user_id).first()
+    return db.query(User).filter(User.id == user_id).first()

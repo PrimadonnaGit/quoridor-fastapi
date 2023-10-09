@@ -41,7 +41,7 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             await manager.start_game(
                 websocket,
-                manager.client_info[websocket]['room_id'],
+                manager.client_info[websocket]["room_id"],
             )
     except Exception as e:
         print(e)

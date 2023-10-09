@@ -28,7 +28,7 @@ class ServerInfoResponse:
                 "code": self.code,
                 "message": self.message,
                 "data": self.data,
-            }
+            },
         }
 
 
@@ -44,5 +44,5 @@ class ErrorResponse:
             "error": {
                 "code": self.code,
                 "message": self.message,
-            }
+            },
         }
