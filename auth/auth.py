@@ -51,5 +51,6 @@ async def kakao_callback(code: str = None):
             headers={"Authorization": f'Bearer {token_data["access_token"]}'},
         )
         user_data = user_response.json()
+        print(user_data)
 
     return {"message": "Kakao Login Successful!", "user_data": user_data}
