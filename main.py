@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Body
 import uvicorn
 from fastapi.requests import Request
 from starlette.middleware.cors import CORSMiddleware
@@ -69,8 +69,10 @@ async def login():
     return redirect_to_login()
 
 
-@app.get("/kakao-login")
-async def kakao_login_callback(code: str = None):
+@app.post("/kakao-login")
+async def kakao_login_callback(
+    code: str = Body(..., description="Authorization Code", embed=True)
+):
     return await kakao_callback(code)
 
 
