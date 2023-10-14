@@ -43,6 +43,7 @@ async def kakao_callback(code: str = None):
             },
         )
         token_data = token_response.json()
+        print(token_data)
 
     async with httpx.AsyncClient() as client:
         user_response = await client.get(
