@@ -39,6 +39,7 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logging.error(e)
     finally:
+        print("disconnect", websocket, room_number)
         await manager.disconnect(websocket, room_number)
 
 

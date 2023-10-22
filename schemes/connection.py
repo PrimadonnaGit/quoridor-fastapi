@@ -6,8 +6,10 @@ from starlette.websockets import WebSocket
 
 class InfoStatus(Enum):
     CONNECTED_TO_ROOM = 102
-    CONNECTION_STARTED = 301
+    READY_TO_PLAY = 103
+    GAME_START = 301
     CONNECTION_ENDED = 302
+    PLAYER_HAS_LEFT_THE_CONNECTION = 202
 
 
 class ErrorStatus(Enum):
@@ -15,7 +17,6 @@ class ErrorStatus(Enum):
     ROOM_DOES_NOT_EXIST = 101
     NOT_YOUR_TURN = 200
     INVALID_MOVE = 201
-    PLAYER_HAS_LEFT_THE_CONNECTION = 202
     INVALID_INPUT_FORMAT = 203
     CONNECTION_NOT_STARTED = 300
     CONNECTION_LOST = 400
@@ -35,6 +36,7 @@ class RoomInfo(BaseModel):
         description="Current player in the room", default=None
     )
     histories: list[dict] = Field(description="Game history", default=[])
+    ready_to_play: int = Field(description="Ready Players", default=0)
 
     class Config:
         arbitrary_types_allowed = True
