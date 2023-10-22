@@ -1,17 +1,14 @@
-from fastapi import FastAPI, WebSocket, Body
+import logging
+
 import uvicorn
-from fastapi.requests import Request
+from fastapi import Body, FastAPI, WebSocket
 from starlette.middleware.cors import CORSMiddleware
 
-from starlette.responses import HTMLResponse
-from starlette.templating import Jinja2Templates
-
-from auth.auth import redirect_to_login, kakao_callback
+from auth.auth import kakao_callback, redirect_to_login
 from connection.connection import ConnectionManager
 
 app = FastAPI()
 
-templates = Jinja2Templates(directory="templates")
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,11 +21,6 @@ app.add_middleware(
 manager = ConnectionManager()
 
 
-@app.get("/test", response_class=HTMLResponse)
-async def test_page(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-
 @app.get("/")
 async def health_check():
     return {"status": "ok"}
@@ -36,32 +28,34 @@ async def health_check():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.new_connection(websocket)
+    room_number = await manager.new_connection(websocket)
+
     try:
         while True:
-            await manager.start_game(
+            await manager.play_game(
                 websocket,
-                manager.client_info[websocket]["room_id"],
+                room_number,
             )
     except Exception as e:
-        print(e)
+        logging.error(e)
     finally:
-        await manager.disconnect(websocket)
+        await manager.disconnect(websocket, room_number)
 
 
-@app.websocket("/ws/{room_id}")
-async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_id: int):
-    await manager.connect(websocket, room_id)
+@app.websocket("/ws/{room_number}")
+async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_number: int):
+    await manager.connect(websocket, room_number)
+
     try:
         while True:
-            await manager.start_game(
+            await manager.play_game(
                 websocket,
-                room_id,
+                room_number,
             )
     except Exception as e:
-        print(e)
+        logging.error(e)
     finally:
-        await manager.disconnect(websocket)
+        await manager.disconnect(websocket, room_number)
 
 
 @app.get("/login")

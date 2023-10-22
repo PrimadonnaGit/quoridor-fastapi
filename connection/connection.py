@@ -1,82 +1,185 @@
 import json
 import random
 import uuid
+from collections import defaultdict
 
 from starlette.websockets import WebSocket
 
-from util.util import ServerInfoResponse, ErrorResponse
+from schemes.connection import (
+    ErrorStatus,
+    InfoStatus,
+    RoomInfo,
+    ServerErrorScheme,
+    ServerInfoScheme,
+    ServerMessageType,
+    ServerResponse,
+)
 
 
 class ConnectionManager:
+    """Websocket Connection manager."""
+
     def __init__(self):
-        self.client_info = {}
-        self.room_info = {}
-        self.game_history = {}
+        self.rooms: dict[int, RoomInfo] = defaultdict(RoomInfo)
 
-    async def new_connection(self, websocket: WebSocket):
-        await websocket.accept()
-        rood_id = random.randint(0, 100000)
-        self.room_info[rood_id] = [websocket]
-        self.client_info[websocket] = {
-            "id": str(uuid.uuid4()),
-            "turn": True,
-            "room_id": rood_id,
-        }
-        self.game_history[rood_id] = []
-        await websocket.send_json(
-            ServerInfoResponse(102, self.client_info[websocket]).to_dict()
+    async def make_new_room_number(self) -> int:
+        """Make new room number."""
+        room_number = random.randint(1000, 9999)
+
+        while room_number in self.rooms.keys():
+            room_number = random.randint(1000, 9999)
+
+        return room_number
+
+    async def new_connection(self, client: WebSocket) -> int:
+        """Make new connection."""
+        await client.accept()
+
+        room_number = await self.make_new_room_number()
+
+        self.rooms[room_number].clients.append(client)
+        self.rooms[room_number].current_player = client
+
+        await client.send_json(
+            ServerResponse(
+                message_type=ServerMessageType.SERVER_INFO.value,
+                server_info=ServerInfoScheme(
+                    code=InfoStatus.CONNECTED_TO_ROOM.value,
+                    message="Connected to room",
+                    data={
+                        "client_id": str(uuid.uuid4()),
+                        "is_your_turn": True,
+                        "room_number": room_number,
+                    },
+                ),
+            ).model_dump()
         )
 
-    async def connect(self, websocket: WebSocket, room_id: int):
-        await websocket.accept()
-        if room_id in self.room_info:
-            if len(self.room_info[room_id]) < 2:
-                self.room_info[room_id].append(websocket)
-                self.client_info[websocket] = {
-                    "id": str(uuid.uuid4()),
-                    "turn": False,
-                    "room_id": room_id,
-                }
-                await websocket.send_json(
-                    ServerInfoResponse(102, self.client_info[websocket]).to_dict()
+        return room_number
+
+    async def connect(self, client: WebSocket, room_number: int) -> None:
+        """Connect client to room."""
+        await client.accept()
+
+        if room_number in self.rooms:
+            # if room is not full
+            if len(self.rooms[room_number].clients) < 2:
+                self.rooms[room_number].clients.append(client)
+
+                await client.send_json(
+                    ServerResponse(
+                        message_type=ServerMessageType.SERVER_INFO.value,
+                        server_info=ServerInfoScheme(
+                            code=InfoStatus.CONNECTED_TO_ROOM.value,
+                            message="Connected to room",
+                            data={
+                                "client_id": str(uuid.uuid4()),
+                                "is_your_turn": False,
+                                "room_number": room_number,
+                            },
+                        ),
+                    ).model_dump()
                 )
-                await self.broadcast_json(ServerInfoResponse(301).to_dict(), room_id)
-            else:
-                await websocket.send_json(ErrorResponse(100).to_dict())
-                return
-        else:
-            await websocket.send_json(ErrorResponse(101).to_dict())
-            return
 
-    async def disconnect(self, websocket: WebSocket):
-        self.room_info[self.client_info[websocket]["room_id"]].remove(websocket)
-        await self.broadcast_json(
-            ErrorResponse(202).to_dict(), self.client_info[websocket]["room_id"]
+                await self.broadcast_to_room(
+                    ServerResponse(
+                        message_type=ServerMessageType.SERVER_INFO.value,
+                        server_info=ServerInfoScheme(
+                            code=InfoStatus.CONNECTION_STARTED.value,
+                            message="Connection started",
+                        ),
+                    ).model_dump(),
+                    room_number,
+                )
+            else:
+                # if room is full
+                await client.send_json(
+                    ServerResponse(
+                        message_type=ServerMessageType.ERROR.value,
+                        error=ServerErrorScheme(
+                            code=ErrorStatus.ROOM_IS_FULL.value,
+                            message="Room is full",
+                        ),
+                    ).model_dump()
+                )
+        else:
+            # if room does not exist
+            await client.send_json(
+                ServerResponse(
+                    message_type=ServerMessageType.ERROR.value,
+                    error=ServerErrorScheme(
+                        code=ErrorStatus.ROOM_DOES_NOT_EXIST.value,
+                        message="Room does not exist",
+                    ),
+                ).model_dump()
+            )
+
+    async def disconnect(self, client: WebSocket, room_number: int) -> None:
+        """Disconnect client from room."""
+        if room_number in self.rooms[room_number]:
+            self.rooms[room_number].remove(client)
+
+            await self.broadcast_to_room(
+                ServerResponse(
+                    message_type=ServerMessageType.SERVER_INFO.value,
+                    server_info=ServerInfoScheme(
+                        code=InfoStatus.CONNECTION_ENDED.value,
+                        message="Connection ended",
+                    ),
+                ).model_dump(),
+                room_number,
+            )
+
+            if len(self.rooms[room_number].clients) == 0:
+                del self.rooms[room_number]
+
+    async def broadcast_to_room(self, message: dict, room_number: int) -> None:
+        """Broadcast message to all clients in the room."""
+        for client in self.rooms[room_number].clients:
+            await client.send_json(message)
+
+    async def switch_current_player(self, room_number: int) -> None:
+        """Switch current player."""
+        self.rooms[room_number].current_player = (
+            self.rooms[room_number].clients[0]
+            if self.rooms[room_number].clients[0]
+            != self.rooms[room_number].current_player
+            else self.rooms[room_number].clients[1]
         )
 
-    async def broadcast_json(self, message: dict, room_id: int):
-        for room_user in self.room_info[room_id]:
-            await room_user.send_json(message)
+    async def play_game(self, client: WebSocket, room_number: int) -> None:
+        """Play game with client."""
+        data = await client.receive_text()
 
-    async def start_game(self, websocket: WebSocket, room_id: int):
-        data = await websocket.receive_text()
-
-        if self.client_info[websocket]["turn"]:
+        if self.rooms[room_number].current_player == client:
             try:
                 json_data = json.loads(data)
-                self.game_history[room_id].append(json_data)
+                self.rooms[room_number].histories.append(json_data)
 
-                for client in self.room_info[room_id]:
-                    if client != websocket:
-                        await client.send_json(json_data)
+                for room_client in self.rooms[room_number].clients:
+                    if room_client != client:
+                        await room_client.send_json(json_data)
 
-                self.client_info[websocket]["turn"] = False
-                for client in self.room_info[room_id]:
-                    if client != websocket:
-                        self.client_info[client]["turn"] = True
+                await self.switch_current_player(room_number)
 
             except json.JSONDecodeError:
-                await websocket.send_json(ErrorResponse(203).to_dict())
+                await client.send_json(
+                    ServerResponse(
+                        message_type=ServerMessageType.ERROR.value,
+                        error=ServerErrorScheme(
+                            code=ErrorStatus.INVALID_INPUT_FORMAT.value,
+                            message="Invalid input format",
+                        ),
+                    ).model_dump()
+                )
 
         else:
-            await websocket.send_json(ErrorResponse(200).to_dict())
+            await client.send_json(
+                ServerResponse(
+                    message_type=ServerMessageType.ERROR.value,
+                    error=ServerErrorScheme(
+                        code=ErrorStatus.NOT_YOUR_TURN.value,
+                        message="Not your turn",
+                    ),
+                ).model_dump()
+            )

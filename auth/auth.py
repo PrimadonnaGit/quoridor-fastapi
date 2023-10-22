@@ -1,12 +1,10 @@
 import os
 
-from fastapi.requests import Request
-
-from fastapi import HTTPException
-from fastapi.security import OAuth2PasswordBearer
-from fastapi.responses import RedirectResponse
 import httpx
-
+from fastapi import HTTPException
+from fastapi.requests import Request
+from fastapi.responses import RedirectResponse
+from fastapi.security import OAuth2PasswordBearer
 
 CLIENT_ID = os.getenv("KAKAO_CLIENT_ID", "")
 REDIRECT_URI = os.getenv("KAKAO_REDIRECT_URI", "")
