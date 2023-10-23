@@ -26,6 +26,7 @@ class ErrorStatus(Enum):
 class ServerMessageType(Enum):
     SERVER_INFO = "server_info"
     ERROR = "error"
+    USER_ACTION = "user_action"
 
 
 class RoomInfo(BaseModel):

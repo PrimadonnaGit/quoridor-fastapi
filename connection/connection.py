@@ -157,12 +157,43 @@ class ConnectionManager:
             else self.rooms[room_number].clients[1]
         )
 
-    async def play_game(self, client: WebSocket, room_number: int) -> None:
+    async def handle_server_info_message(self, room_number: int, message: dict) -> None:
+        if message["server_info"]["code"] == 103:
+            self.rooms[room_number].ready_to_play += 1
+
+            if self.rooms[room_number].ready_to_play == 2:
+                self.rooms[room_number].ready_to_play = 0
+                await self.broadcast_to_room(
+                    ServerResponse(
+                        message_type=ServerMessageType.SERVER_INFO.value,
+                        server_info=ServerInfoScheme(
+                            code=InfoStatus.GAME_START.value,
+                            message="Game start",
+                        ),
+                    ).model_dump(),
+                    room_number,
+                )
+                return
+        if message["server_info"]["code"] == 202:
+            # 상대방이 나갔을 때
+            await self.broadcast_to_room(
+                ServerResponse(
+                    message_type=ServerMessageType.SERVER_INFO.value,
+                    server_info=ServerInfoScheme(
+                        code=InfoStatus.PLAYER_HAS_LEFT_THE_CONNECTION.value,
+                        message="Player has left the connection",
+                    ),
+                ).model_dump(),
+                room_number,
+            )
+            return
+
+    async def communicate(self, client: WebSocket, room_number: int) -> None:
         """Play game with client."""
-        data = await client.receive_text()
+        text = await client.receive_text()
 
         try:
-            json_data = json.loads(data)
+            message = json.loads(text)
         except json.JSONDecodeError:
             await client.send_json(
                 ServerResponse(
@@ -176,52 +207,31 @@ class ConnectionManager:
 
             return
 
-        if json_data["message_type"] == "server_info":
-            if json_data["server_info"]["code"] == 103:
-                self.rooms[room_number].ready_to_play += 1
+        if message["message_type"] == ServerMessageType.SERVER_INFO.value:
+            await self.handle_server_info_message(room_number, message)
 
-                if self.rooms[room_number].ready_to_play == 2:
-                    self.rooms[room_number].ready_to_play = 0
-                    await self.broadcast_to_room(
-                        ServerResponse(
-                            message_type=ServerMessageType.SERVER_INFO.value,
-                            server_info=ServerInfoScheme(
-                                code=InfoStatus.GAME_START.value,
-                                message="Game start",
-                            ),
-                        ).model_dump(),
-                        room_number,
-                    )
-                    return
-            if json_data["server_info"]["code"] == 202:
-                # 상대방이 나갔을 때
-                await self.broadcast_to_room(
+        if message["message_type"] == ServerMessageType.USER_ACTION.value:
+            if self.rooms[room_number].current_player == client:
+                self.rooms[room_number].histories.append(message)
+
+                for room_client in self.rooms[room_number].clients:
+                    if room_client != client:
+                        await room_client.send_json(message)
+
+                await self.switch_current_player(room_number)
+            else:
+                await client.send_json(
                     ServerResponse(
-                        message_type=ServerMessageType.SERVER_INFO.value,
-                        server_info=ServerInfoScheme(
-                            code=InfoStatus.PLAYER_HAS_LEFT_THE_CONNECTION.value,
-                            message="Player has left the connection",
+                        message_type=ServerMessageType.ERROR.value,
+                        error=ServerErrorScheme(
+                            code=ErrorStatus.NOT_YOUR_TURN.value,
+                            message="Not your turn",
                         ),
-                    ).model_dump(),
-                    room_number,
+                    ).model_dump()
                 )
-                return
 
-        if self.rooms[room_number].current_player == client:
-            self.rooms[room_number].histories.append(json_data)
+        if message["message_type"] == ServerMessageType.ERROR.value:
+            return 
 
-            for room_client in self.rooms[room_number].clients:
-                if room_client != client:
-                    await room_client.send_json(json_data)
+        raise ValueError("Invalid message type")
 
-            await self.switch_current_player(room_number)
-        else:
-            await client.send_json(
-                ServerResponse(
-                    message_type=ServerMessageType.ERROR.value,
-                    error=ServerErrorScheme(
-                        code=ErrorStatus.NOT_YOUR_TURN.value,
-                        message="Not your turn",
-                    ),
-                ).model_dump()
-            )

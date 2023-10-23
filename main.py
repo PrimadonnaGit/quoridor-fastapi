@@ -12,7 +12,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["localhost:3000", "https://quoridor-web-koreaboardgamearena.koyeb.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,7 +32,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         while True:
-            await manager.play_game(
+            await manager.communicate(
                 websocket,
                 room_number,
             )
@@ -49,7 +49,7 @@ async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_number: int
 
     try:
         while True:
-            await manager.play_game(
+            await manager.communicate(
                 websocket,
                 room_number,
             )
