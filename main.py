@@ -3,6 +3,7 @@ import logging
 import uvicorn
 from fastapi import Body, FastAPI, WebSocket
 from starlette.middleware.cors import CORSMiddleware
+from starlette.websockets import WebSocketDisconnect
 
 from auth.auth import kakao_callback, redirect_to_login
 from connection.connection import ConnectionManager
@@ -36,11 +37,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 websocket,
                 room_number,
             )
-    except Exception as e:
-        logging.error(e)
-    finally:
-        print("disconnect", websocket, room_number)
+    except WebSocketDisconnect:
+        logging.info("ws, client disconnected")
         await manager.disconnect(websocket, room_number)
+    except Exception as e:
+        logging.error(f"ws, {e}")
+
+
 
 
 @app.websocket("/ws/{room_number}")
@@ -53,10 +56,11 @@ async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_number: int
                 websocket,
                 room_number,
             )
-    except Exception as e:
-        logging.error(e)
-    finally:
+    except WebSocketDisconnect:
+        logging.info("ws, client disconnected")
         await manager.disconnect(websocket, room_number)
+    except Exception as e:
+        logging.error(f"ws, {e}")
 
 
 @app.get("/login")

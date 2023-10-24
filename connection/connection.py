@@ -1,11 +1,9 @@
 import json
-import logging
 import random
 import uuid
 from collections import defaultdict
 
 from starlette.websockets import WebSocket
-from websockets import ConnectionClosedError
 
 from schemes.connection import (
     ErrorStatus,
@@ -62,66 +60,61 @@ class ConnectionManager:
 
     async def connect(self, client: WebSocket, room_number: int) -> None:
         """Connect client to room."""
-        try:
-            await client.accept()
+        await client.accept()
 
-            if room_number in self.rooms:
-                # if room is not full
-                if len(self.rooms[room_number].clients) < 2:
-                    self.rooms[room_number].clients.append(client)
+        if room_number in self.rooms:
+            # if room is not full
+            if len(self.rooms[room_number].clients) < 2:
+                self.rooms[room_number].clients.append(client)
 
-                    await client.send_json(
-                        ServerResponse(
-                            message_type=ServerMessageType.SERVER_INFO.value,
-                            server_info=ServerInfoScheme(
-                                code=InfoStatus.CONNECTED_TO_ROOM.value,
-                                message="Connected to room",
-                                data={
-                                    "client_id": str(uuid.uuid4()),
-                                    "is_your_turn": False,
-                                    "room_number": room_number,
-                                    "clients_count": len(self.rooms[room_number].clients),
-                                },
-                            ),
-                        ).model_dump()
-                    )
+                await client.send_json(
+                    ServerResponse(
+                        message_type=ServerMessageType.SERVER_INFO.value,
+                        server_info=ServerInfoScheme(
+                            code=InfoStatus.CONNECTED_TO_ROOM.value,
+                            message="Connected to room",
+                            data={
+                                "client_id": str(uuid.uuid4()),
+                                "is_your_turn": False,
+                                "room_number": room_number,
+                                "clients_count": len(self.rooms[room_number].clients),
+                            },
+                        ),
+                    ).model_dump()
+                )
 
-                    await self.broadcast_to_room(
-                        ServerResponse(
-                            message_type=ServerMessageType.SERVER_INFO.value,
-                            server_info=ServerInfoScheme(
-                                code=InfoStatus.READY_TO_PLAY.value,
-                                message="Ready for play",
-                            ),
-                        ).model_dump(),
-                        room_number,
-                    )
-                else:
-                    # if room is full
-                    await client.send_json(
-                        ServerResponse(
-                            message_type=ServerMessageType.ERROR.value,
-                            error=ServerErrorScheme(
-                                code=ErrorStatus.ROOM_IS_FULL.value,
-                                message=f"Room is full {len(self.rooms[room_number].clients)}",
-                            ),
-                        ).model_dump()
-                    )
+                await self.broadcast_to_room(
+                    ServerResponse(
+                        message_type=ServerMessageType.SERVER_INFO.value,
+                        server_info=ServerInfoScheme(
+                            code=InfoStatus.READY_TO_PLAY.value,
+                            message="Ready for play",
+                        ),
+                    ).model_dump(),
+                    room_number,
+                )
             else:
-                # if room does not exist
+                # if room is full
                 await client.send_json(
                     ServerResponse(
                         message_type=ServerMessageType.ERROR.value,
                         error=ServerErrorScheme(
-                            code=ErrorStatus.ROOM_DOES_NOT_EXIST.value,
-                            message="Room does not exist",
+                            code=ErrorStatus.ROOM_IS_FULL.value,
+                            message=f"Room is full {len(self.rooms[room_number].clients)}",
                         ),
                     ).model_dump()
                 )
-        except ConnectionClosedError as e:
-            await self.disconnect(client, room_number)
-        except Exception as e:
-            logging.error(e)
+        else:
+            # if room does not exist
+            await client.send_json(
+                ServerResponse(
+                    message_type=ServerMessageType.ERROR.value,
+                    error=ServerErrorScheme(
+                        code=ErrorStatus.ROOM_DOES_NOT_EXIST.value,
+                        message="Room does not exist",
+                    ),
+                ).model_dump()
+            )
 
     async def disconnect(self, client: WebSocket, room_number: int) -> None:
         """Disconnect client from room."""
@@ -232,6 +225,4 @@ class ConnectionManager:
 
         if message["message_type"] == ServerMessageType.ERROR.value:
             return 
-
-        raise ValueError("Invalid message type")
 
