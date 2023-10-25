@@ -156,16 +156,25 @@ class ConnectionManager:
 
             if self.rooms[room_number].ready_to_play == 2:
                 self.rooms[room_number].ready_to_play = 0
-                await self.broadcast_to_room(
-                    ServerResponse(
-                        message_type=ServerMessageType.SERVER_INFO.value,
-                        server_info=ServerInfoScheme(
-                            code=InfoStatus.GAME_START.value,
-                            message="Game start",
-                        ),
-                    ).model_dump(),
-                    room_number,
-                )
+
+                for client in self.rooms[room_number].clients:
+                    is_your_turn = (
+                        True
+                        if client == self.rooms[room_number].current_player
+                        else False
+                    )
+                    await client.send_json(
+                        ServerResponse(
+                            message_type=ServerMessageType.SERVER_INFO.value,
+                            server_info=ServerInfoScheme(
+                                code=InfoStatus.GAME_START.value,
+                                message="Game start",
+                                data={
+                                    "is_your_turn": is_your_turn,
+                                }
+                            ),
+                        ).model_dump()
+                    )
                 return
         if message["server_info"]["code"] == 202:
             # 상대방이 나갔을 때
