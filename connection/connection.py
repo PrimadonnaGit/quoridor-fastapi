@@ -34,6 +34,9 @@ class ConnectionManager:
     async def reset_countdown(self, room_number: int) -> None:
         self.rooms[room_number].tic = 90
 
+    async def stop_countdown(self, room_number: int) -> None:
+        self.rooms[room_number].tic = 0
+
     async def countdown(self, room_number: int) -> None:
         while (
             self.rooms[room_number].tic > 0
