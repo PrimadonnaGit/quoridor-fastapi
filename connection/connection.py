@@ -39,7 +39,7 @@ class ConnectionManager:
 
     async def countdown(self, room_number: int) -> None:
         while (
-            self.rooms[room_number].tic > 0
+            self.rooms[room_number].tic >= 0
             and len(self.rooms[room_number].clients) == 2
         ):
             try:
