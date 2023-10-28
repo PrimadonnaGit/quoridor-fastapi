@@ -44,8 +44,6 @@ async def websocket_endpoint(websocket: WebSocket):
         await manager.disconnect(websocket, room_number)
     except Exception as e:
         logging.error(f"ws, {e}")
-        await manager.stop_countdown(room_number)
-        await manager.disconnect(websocket, room_number)
 
 
 @app.websocket("/ws/{room_number}")

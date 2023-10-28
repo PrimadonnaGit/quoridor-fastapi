@@ -29,6 +29,7 @@ class ServerMessageType(Enum):
     SERVER_INFO = "server_info"
     ERROR = "error"
     USER_ACTION = "user_action"
+    HEARTBEAT = "heartbeat"
 
 
 class RoomInfo(BaseModel):
@@ -41,6 +42,9 @@ class RoomInfo(BaseModel):
     histories: list[dict] = Field(description="Game history", default=[])
     ready_to_play: int = Field(description="Ready Players", default=0)
     tic: int = Field(description="Countdown", default=90)
+    player_heartbeats: dict[WebSocket, int] = Field(
+        description="Player heartbeats", default={}
+    )
 
     class Config:
         arbitrary_types_allowed = True

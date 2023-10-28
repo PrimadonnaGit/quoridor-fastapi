@@ -210,6 +210,7 @@ class ConnectionManager:
                     )
 
                 asyncio.create_task(self.countdown(room_number))
+                asyncio.create_task(self.heartbeat(room_number))
                 return
         if message["server_info"]["code"] == 202:
             # 상대방이 나갔을 때
@@ -224,6 +225,39 @@ class ConnectionManager:
                 room_number,
             )
             return
+
+    async def heartbeat(self, room_number: int) -> None:
+        while len(self.rooms[room_number].clients) == 2:
+            try:
+                await self.broadcast_to_room(
+                    ServerResponse(
+                        message_type=ServerMessageType.HEARTBEAT.value,
+                        server_info=ServerInfoScheme(
+                            code=InfoStatus.PING.value,
+                            message="ping",
+                        ),
+                    ).model_dump(),
+                    room_number,
+                )
+                for client in self.rooms[room_number].clients:
+                    if self.rooms[room_number].player_heartbeats[client] > 5:
+                        await self.broadcast_to_room(
+                            ServerResponse(
+                                message_type=ServerMessageType.SERVER_INFO.value,
+                                server_info=ServerInfoScheme(
+                                    code=InfoStatus.PLAYER_HAS_LEFT_THE_CONNECTION.value,
+                                    message="Player has left the connection",
+                                ),
+                            ).model_dump(),
+                            room_number,
+                        )
+                        return
+                    self.rooms[room_number].player_heartbeats[client] += 1
+
+            except Exception as e:
+                print(e)
+                break
+            await asyncio.sleep(1)
 
     async def communicate(self, client: WebSocket, room_number: int) -> None:
         """Play game with client."""
@@ -242,6 +276,10 @@ class ConnectionManager:
                 ).model_dump()
             )
 
+            return
+
+        if message["message_type"] == ServerMessageType.HEARTBEAT.value:
+            self.rooms[room_number].player_heartbeats[client] = 0
             return
 
         if message["message_type"] == ServerMessageType.SERVER_INFO.value:
