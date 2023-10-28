@@ -69,6 +69,7 @@ class ConnectionManager:
         room_number = await self.make_new_room_number()
 
         self.rooms[room_number].clients.append(client)
+        self.rooms[room_number].player_heartbeats[client] = 0
         self.rooms[room_number].current_player = client
 
         await client.send_json(
@@ -97,6 +98,7 @@ class ConnectionManager:
             # if room is not full
             if len(self.rooms[room_number].clients) < 2:
                 self.rooms[room_number].clients.append(client)
+                self.rooms[room_number].player_heartbeats[client] = 0
 
                 await client.send_json(
                     ServerResponse(
@@ -251,9 +253,9 @@ class ConnectionManager:
                             ).model_dump(),
                             room_number,
                         )
+                        await self.disconnect(client, room_number)
                         return
                     self.rooms[room_number].player_heartbeats[client] += 1
-
             except Exception as e:
                 print(e)
                 break
