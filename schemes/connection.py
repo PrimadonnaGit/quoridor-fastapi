@@ -5,11 +5,13 @@ from starlette.websockets import WebSocket
 
 
 class InfoStatus(Enum):
+    PING = 0
     CONNECTED_TO_ROOM = 102
     READY_TO_PLAY = 103
     GAME_START = 301
     CONNECTION_ENDED = 302
     PLAYER_HAS_LEFT_THE_CONNECTION = 202
+    COUNTDOWN = 303
 
 
 class ErrorStatus(Enum):
@@ -38,6 +40,7 @@ class RoomInfo(BaseModel):
     )
     histories: list[dict] = Field(description="Game history", default=[])
     ready_to_play: int = Field(description="Ready Players", default=0)
+    tic: int = Field(description="Countdown", default=90)
 
     class Config:
         arbitrary_types_allowed = True

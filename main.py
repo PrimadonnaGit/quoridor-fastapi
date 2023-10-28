@@ -4,6 +4,7 @@ import uvicorn
 from fastapi import Body, FastAPI, WebSocket
 from starlette.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketDisconnect
+from websockets import ConnectionClosedError, ConnectionClosedOK
 
 from auth.auth import kakao_callback, redirect_to_login
 from connection.connection import ConnectionManager
@@ -13,18 +14,17 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["localhost:3000", "https://quoridor-web-koreaboardgamearena.koyeb.app"],
+    allow_origins=[
+        "localhost:3000",
+        "https://quoridor-web-koreaboardgamearena.koyeb.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
 manager = ConnectionManager()
-
-
-@app.get("/")
-async def health_check():
-    return {"status": "ok"}
 
 
 @app.websocket("/ws")
@@ -37,13 +37,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 websocket,
                 room_number,
             )
-    except WebSocketDisconnect:
+
+    except (WebSocketDisconnect, ConnectionClosedError, ConnectionClosedOK):
         logging.info("ws, client disconnected")
         await manager.disconnect(websocket, room_number)
     except Exception as e:
         logging.error(f"ws, {e}")
-
-
 
 
 @app.websocket("/ws/{room_number}")
@@ -56,11 +55,29 @@ async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_number: int
                 websocket,
                 room_number,
             )
-    except WebSocketDisconnect:
+
+    except (WebSocketDisconnect, ConnectionClosedError, ConnectionClosedOK):
         logging.info("ws, client disconnected")
         await manager.disconnect(websocket, room_number)
     except Exception as e:
         logging.error(f"ws, {e}")
+
+
+@app.get("/")
+async def health_check():
+    return {"status": "ok"}
+
+
+@app.on_event("startup")
+async def startup_event():
+    pass
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    for room in manager.rooms.values():
+        for client in room.clients:
+            await client.close()
 
 
 @app.get("/login")

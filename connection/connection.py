@@ -1,3 +1,4 @@
+import asyncio
 import json
 import random
 import uuid
@@ -25,11 +26,38 @@ class ConnectionManager:
     async def make_new_room_number(self) -> int:
         """Make new room number."""
         room_number = random.randint(1000, 9999)
-
         while room_number in self.rooms.keys():
             room_number = random.randint(1000, 9999)
 
         return room_number
+
+    async def reset_countdown(self, room_number: int) -> None:
+        self.rooms[room_number].tic = 90
+
+    async def countdown(self, room_number: int) -> None:
+        while (
+            self.rooms[room_number].tic > 0
+            and len(self.rooms[room_number].clients) == 2
+        ):
+            try:
+                await self.broadcast_to_room(
+                    ServerResponse(
+                        message_type=ServerMessageType.SERVER_INFO.value,
+                        server_info=ServerInfoScheme(
+                            code=InfoStatus.COUNTDOWN.value,
+                            message="Countdown",
+                            data={
+                                "countdown": self.rooms[room_number].tic,
+                            },
+                        ),
+                    ).model_dump(),
+                    room_number,
+                )
+            except Exception as e:
+                print(e)
+                break
+            await asyncio.sleep(1)
+            self.rooms[room_number].tic -= 1
 
     async def new_connection(self, client: WebSocket) -> int:
         """Make new connection."""
@@ -119,22 +147,22 @@ class ConnectionManager:
     async def disconnect(self, client: WebSocket, room_number: int) -> None:
         """Disconnect client from room."""
         print("disconnect", client, room_number, self.rooms[room_number].clients)
-        if room_number in self.rooms[room_number]:
-            self.rooms[room_number].remove(client)
-
-            await self.broadcast_to_room(
-                ServerResponse(
-                    message_type=ServerMessageType.SERVER_INFO.value,
-                    server_info=ServerInfoScheme(
-                        code=InfoStatus.CONNECTION_ENDED.value,
-                        message="Connection ended",
-                    ),
-                ).model_dump(),
-                room_number,
-            )
-
+        if room_number in self.rooms.keys():
+            if client in self.rooms[room_number].clients:
+                self.rooms[room_number].clients.remove(client)
             if len(self.rooms[room_number].clients) == 0:
                 del self.rooms[room_number]
+            else:
+                await self.broadcast_to_room(
+                    ServerResponse(
+                        message_type=ServerMessageType.SERVER_INFO.value,
+                        server_info=ServerInfoScheme(
+                            code=InfoStatus.CONNECTION_ENDED.value,
+                            message="Connection ended",
+                        ),
+                    ).model_dump(),
+                    room_number,
+                )
 
     async def broadcast_to_room(self, message: dict, room_number: int) -> None:
         """Broadcast message to all clients in the room."""
@@ -152,9 +180,11 @@ class ConnectionManager:
 
     async def handle_server_info_message(self, room_number: int, message: dict) -> None:
         if message["server_info"]["code"] == 103:
+            # 게임 준비여부 확인
             self.rooms[room_number].ready_to_play += 1
 
             if self.rooms[room_number].ready_to_play == 2:
+                # 게임 시작
                 self.rooms[room_number].ready_to_play = 0
 
                 for client in self.rooms[room_number].clients:
@@ -171,10 +201,12 @@ class ConnectionManager:
                                 message="Game start",
                                 data={
                                     "is_your_turn": is_your_turn,
-                                }
+                                },
                             ),
                         ).model_dump()
                     )
+
+                asyncio.create_task(self.countdown(room_number))
                 return
         if message["server_info"]["code"] == 202:
             # 상대방이 나갔을 때
@@ -220,6 +252,8 @@ class ConnectionManager:
                     if room_client != client:
                         await room_client.send_json(message)
 
+                # 유저 행동이 들어왔을 때 카운트다운 재시작
+                await self.reset_countdown(room_number)
                 await self.switch_current_player(room_number)
             else:
                 await client.send_json(
@@ -233,5 +267,6 @@ class ConnectionManager:
                 )
 
         if message["message_type"] == ServerMessageType.ERROR.value:
-            return 
+            return
 
+        return
