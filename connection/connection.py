@@ -288,6 +288,13 @@ class ConnectionManager:
             await self.handle_server_info_message(room_number, message)
 
         if message["message_type"] == ServerMessageType.USER_ACTION.value:
+
+            if message["user_action"]["type"] == "emoji":
+                for room_client in self.rooms[room_number].clients:
+                    if room_client != client:
+                        await room_client.send_json(message)
+                return
+
             if self.rooms[room_number].current_player == client:
                 self.rooms[room_number].histories.append(message)
 
