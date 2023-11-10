@@ -211,6 +211,7 @@ class ConnectionManager:
                         ).model_dump()
                     )
 
+                await self.reset_countdown(room_number)
                 asyncio.create_task(self.countdown(room_number))
                 asyncio.create_task(self.heartbeat(room_number))
                 return
@@ -227,6 +228,9 @@ class ConnectionManager:
                 room_number,
             )
             return
+        if message["server_info"]["code"] == 304:
+            # 게임 종료 시그널
+            await self.stop_countdown(room_number)
 
     async def heartbeat(self, room_number: int) -> None:
         while len(self.rooms[room_number].clients) == 2:
@@ -288,7 +292,6 @@ class ConnectionManager:
             await self.handle_server_info_message(room_number, message)
 
         if message["message_type"] == ServerMessageType.USER_ACTION.value:
-
             if message["user_action"]["type"] == "emoji":
                 for room_client in self.rooms[room_number].clients:
                     if room_client != client:

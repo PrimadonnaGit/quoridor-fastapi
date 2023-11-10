@@ -12,6 +12,7 @@ class InfoStatus(Enum):
     CONNECTION_ENDED = 302
     PLAYER_HAS_LEFT_THE_CONNECTION = 202
     COUNTDOWN = 303
+    GAME_END = 304
 
 
 class ErrorStatus(Enum):
