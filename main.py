@@ -6,7 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketDisconnect
 from websockets import ConnectionClosedError, ConnectionClosedOK
 
-from auth.auth import kakao_callback, redirect_to_login
+from auth.auth import kakao_callback, redirect_to_login, get_user_from_user
 from connection.connection import ConnectionManager
 
 app = FastAPI()
@@ -92,6 +92,11 @@ async def kakao_login_callback(
     code: str = Body(..., description="Authorization Code", embed=True)
 ):
     return await kakao_callback(code)
+
+
+@app.get("/users/{user_id}")
+async def get_me(user_id: str):
+    return get_user_from_user(user_id)
 
 
 if __name__ == "__main__":
