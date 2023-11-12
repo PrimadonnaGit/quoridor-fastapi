@@ -24,12 +24,6 @@ class OAuth2KakaoPasswordBearer(OAuth2PasswordBearer):
 oauth2_scheme = OAuth2KakaoPasswordBearer(tokenUrl=KAKAO_TOKEN_URL)
 
 
-def redirect_to_login():
-    redirect_url = f"https://kauth.kakao.com/oauth/authorize?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code"
-
-    return RedirectResponse(redirect_url)
-
-
 async def kakao_callback(code: str = None):
     if code is None:
         raise HTTPException(status_code=400, detail="Missing authorization code")

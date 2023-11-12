@@ -82,11 +82,6 @@ async def shutdown_event():
             await client.close()
 
 
-@app.get("/login")
-async def login():
-    return redirect_to_login()
-
-
 @app.post("/kakao-login")
 async def kakao_login_callback(
     code: str = Body(..., description="Authorization Code", embed=True)
