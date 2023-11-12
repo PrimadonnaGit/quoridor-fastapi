@@ -95,7 +95,7 @@ async def get_me(user_id: str):
     return get_user_from_user(user_id)
 
 
-@app.post("/quoridor/result")
+@app.post("/result")
 async def post_result(
     player1_id: int = Body(..., description="player1", embed=True),
     player2_id: int = Body(..., description="player2", embed=True),
@@ -104,7 +104,7 @@ async def post_result(
     return await leaderboard.update_game_result(player1_id, player2_id, winner_id)
 
 
-@app.get("/quoridor/leaderboard")
+@app.get("/leaderboard")
 async def get_leaderboard():
     return await leaderboard.get_leaderboard()
 
