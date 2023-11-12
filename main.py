@@ -6,7 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketDisconnect
 from websockets import ConnectionClosedError, ConnectionClosedOK
 
-from auth.auth import kakao_callback, redirect_to_login, get_user_from_user
+from auth.auth import kakao_callback, get_user_from_user
 from connection.connection import ConnectionManager
 
 app = FastAPI()

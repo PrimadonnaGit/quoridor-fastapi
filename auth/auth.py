@@ -3,7 +3,6 @@ import os
 import httpx
 from fastapi import HTTPException
 from fastapi.requests import Request
-from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer
 
 from database.database import user_db
