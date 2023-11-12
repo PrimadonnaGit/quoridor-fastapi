@@ -8,6 +8,7 @@ from websockets import ConnectionClosedError, ConnectionClosedOK
 
 from auth.auth import kakao_callback, get_user_from_user
 from connection.connection import ConnectionManager
+from leaderboard import leaderboard
 
 app = FastAPI()
 
@@ -92,6 +93,20 @@ async def kakao_login_callback(
 @app.get("/users/{user_id}")
 async def get_me(user_id: str):
     return get_user_from_user(user_id)
+
+
+@app.post("/quoridor/result")
+async def post_result(
+    player1_id: int = Body(..., description="player1", embed=True),
+    player2_id: int = Body(..., description="player2", embed=True),
+    winner_id: int = Body(..., description="winner", embed=True),
+):
+    return await leaderboard.update_game_result(player1_id, player2_id, winner_id)
+
+
+@app.get("/quoridor/leaderboard")
+async def get_leaderboard():
+    return await leaderboard.get_leaderboard()
 
 
 if __name__ == "__main__":

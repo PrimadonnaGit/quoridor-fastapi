@@ -9,3 +9,4 @@ supabase: Client = create_client(url, key)
 
 user_db = supabase.table("users")
 game_result_db = supabase.table("game_results")
+leaderboard_db = supabase.table("leaderboard")
