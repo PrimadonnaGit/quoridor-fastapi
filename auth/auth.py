@@ -40,7 +40,7 @@ async def kakao_callback(code: str = None):
             data={
                 "grant_type": "authorization_code",
                 "client_id": CLIENT_ID,
-                "redirect_uri": "https://quoridor-web-koreaboardgamearena.koyeb.app/api/auth/kakao",
+                "redirect_uri": REDIRECT_URI,
                 "code": code,
             },
         )
