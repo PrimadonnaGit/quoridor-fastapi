@@ -40,5 +40,5 @@ async def update_game_result(player1_id: int, player2_id: int, winner_id: int):
 
 
 async def get_leaderboard():
-    result = leaderboard_db.select("*").order("rank", desc=False).execute()
+    result = leaderboard_db.select("*").order("rank", desc=False).limit(10).execute()
     return result.data
