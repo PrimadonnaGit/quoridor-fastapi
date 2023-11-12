@@ -1,14 +1,12 @@
 import os
+from datetime import datetime
 
 import httpx
 from fastapi import HTTPException
 from fastapi.requests import Request
-from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer
 
 from database.database import user_db
-
-from datetime import datetime
 
 CLIENT_ID = os.getenv("KAKAO_CLIENT_ID", "")
 REDIRECT_URI = os.getenv("KAKAO_REDIRECT_URI", "")
@@ -46,20 +44,20 @@ async def kakao_callback(code: str = None):
             headers={"Authorization": f'Bearer {token_data["access_token"]}'},
         )
         user_data = user_response.json()
-        user, _ = user_db.upsert(
+        user = user_db.upsert(
             {
                 "nickname": user_data["properties"]["nickname"],
                 "profile_image": user_data["properties"]["profile_image"],
                 "social_provider": "kakao",
-                "social_user_id": "222222",
-                "email": user_data["kakao_account"]["email"],
+                "social_user_id": user_data["id"],
+                "email": user_data["kakao_account"].get("email"),
                 "social_access_token": token_data["access_token"],
                 "social_refresh_token": token_data["refresh_token"],
                 "last_login_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
         ).execute()
 
-    return {"message": "Kakao Login Successful!", "user": user}
+    return {"message": "Kakao Login Successful!", "user": user.data[0]}
 
 
 def get_user_from_user(user_id: str):
