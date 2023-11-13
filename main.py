@@ -1,16 +1,12 @@
-import logging
-
 import uvicorn
-from fastapi import Body, FastAPI, WebSocket
+from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
-from starlette.websockets import WebSocketDisconnect
-from websockets import ConnectionClosedError, ConnectionClosedOK
 
-from auth.auth import kakao_callback, get_user_from_user
-from connection.connection import ConnectionManager
-from leaderboard import leaderboard
+from api.endpoint.websocket import manager
+from api.router import api_router
+from core.database import create_supabase_client
 
-app = FastAPI()
+app = FastAPI(title="Quoridor API")
 
 
 app.add_middleware(
@@ -18,95 +14,28 @@ app.add_middleware(
     allow_origins=[
         "localhost:3000",
         "https://quoridor-web-koreaboardgamearena.koyeb.app",
+        "https://battlequoridor.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(api_router)
 
 
-manager = ConnectionManager()
+@app.on_event("startup")
+async def startup_event():
+    await create_supabase_client()
 
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    room_number = await manager.new_connection(websocket)
-
-    try:
-        while True:
-            await manager.communicate(
-                websocket,
-                room_number,
-            )
-
-    except (WebSocketDisconnect, ConnectionClosedError, ConnectionClosedOK):
-        logging.info("ws, client disconnected")
-        await manager.stop_countdown(room_number)
-        await manager.disconnect(websocket, room_number)
-    except Exception as e:
-        logging.error(f"ws, {e}")
-
-
-@app.websocket("/ws/{room_number}")
-async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_number: int):
-    await manager.connect(websocket, room_number)
-
-    try:
-        while True:
-            await manager.communicate(
-                websocket,
-                room_number,
-            )
-
-    except (WebSocketDisconnect, ConnectionClosedError, ConnectionClosedOK):
-        logging.info("ws, client disconnected")
-        await manager.stop_countdown(room_number)
-        await manager.disconnect(websocket, room_number)
-    except Exception as e:
-        logging.error(f"ws, {e}")
+@app.on_event("shutdown")
+async def shutdown_event():
+    await manager.close_all_connections()
 
 
 @app.get("/")
 async def health_check():
     return {"status": "ok"}
-
-
-@app.on_event("startup")
-async def startup_event():
-    pass
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    for room in manager.rooms.values():
-        for client in room.clients:
-            await client.close()
-
-
-@app.post("/kakao-login")
-async def kakao_login_callback(
-    code: str = Body(..., description="Authorization Code", embed=True)
-):
-    return await kakao_callback(code)
-
-
-@app.get("/users/{user_id}")
-async def get_me(user_id: str):
-    return get_user_from_user(user_id)
-
-
-@app.post("/result")
-async def post_result(
-    player1_id: int = Body(..., description="player1", embed=True),
-    player2_id: int = Body(..., description="player2", embed=True),
-    winner_id: int = Body(..., description="winner", embed=True),
-):
-    return await leaderboard.update_game_result(player1_id, player2_id, winner_id)
-
-
-@app.get("/leaderboard")
-async def get_leaderboard():
-    return await leaderboard.get_leaderboard()
 
 
 if __name__ == "__main__":

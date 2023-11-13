@@ -6,18 +6,16 @@ from collections import defaultdict
 
 from starlette.websockets import WebSocket
 
+from core.enum import ErrorStatus, InfoStatus, ServerMessageType
 from schemes.connection import (
-    ErrorStatus,
-    InfoStatus,
     RoomInfo,
     ServerErrorScheme,
     ServerInfoScheme,
-    ServerMessageType,
     ServerResponse,
 )
 
 
-class ConnectionManager:
+class WebsocketConnectionManager:
     """Websocket Connection manager."""
 
     def __init__(self):
@@ -30,6 +28,11 @@ class ConnectionManager:
             room_number = random.randint(1000, 9999)
 
         return room_number
+
+    async def close_all_connections(self):
+        for room in self.rooms.values():
+            for client in room.clients:
+                await client.close()
 
     async def reset_countdown(self, room_number: int) -> None:
         self.rooms[room_number].tic = 90
