@@ -12,7 +12,7 @@ app = FastAPI(title="Quoridor API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "localhost:3000",
+        "http://localhost:3000",
         "https://quoridor-web-koreaboardgamearena.koyeb.app",
         "https://battlequoridor.com",
     ],

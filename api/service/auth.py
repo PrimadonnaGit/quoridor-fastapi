@@ -4,8 +4,10 @@ import httpx
 from fastapi.requests import Request
 from fastapi.security import OAuth2PasswordBearer
 
+from api.service import user as user_service
 from core.config import KAKAO_CLIENT_ID, KAKAO_TOKEN_URL, REDIRECT_URI
 from core.database import Database
+from core.utils import generate_random_nickname
 
 
 class OAuth2KakaoPasswordBearer(OAuth2PasswordBearer):
@@ -35,12 +37,18 @@ async def kakao_callback(db: Database, code: str):
             "https://kapi.kakao.com/v2/user/me",
             headers={"Authorization": f'Bearer {token_data["access_token"]}'},
         )
-        user_data = user_response.json()
+
+    user_data = user_response.json()
+
+    user = await user_service.get_user_by_social_id(db, user_data["id"])
+
+    if not user:
         user = (
             db.client.table("users")
             .upsert(
                 {
-                    "nickname": user_data["properties"]["nickname"],
+                    "nickname": await generate_random_nickname(),
+                    "social_nickname": user_data["properties"]["nickname"],
                     "profile_image": user_data["properties"]["profile_image"],
                     "social_provider": "kakao",
                     "social_user_id": user_data["id"],
@@ -53,13 +61,6 @@ async def kakao_callback(db: Database, code: str):
             .execute()
         )
 
-    return {"message": "Kakao Login Successful!", "user": user.data[0]}
+        return {"message": "Kakao Sign Up and Login Successful!", "user": user.data[0]}
 
-
-async def get_user_from_user(db: Database, user_id: str) -> dict | None:
-    user = db.client.table("users").select("*").eq("id", user_id).execute()
-
-    if user.data:
-        return user.data[0]
-
-    return None
+    return {"message": "Kakao Login Successful!", "user": user}
