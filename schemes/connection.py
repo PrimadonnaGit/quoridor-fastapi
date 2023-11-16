@@ -11,7 +11,7 @@ class RoomInfo(BaseModel):
     current_player: WebSocket | None = Field(
         description="Current player in the room", default=None
     )
-    player_ids: list[str] = Field(description="Player ids", default=[])
+    player_ids: list[int] = Field(description="Player ids", default=[])
     histories: list[dict] = Field(description="Game history", default=[])
     ready_to_play: int = Field(description="Ready Players", default=0)
     tic: int = Field(description="Countdown", default=90)

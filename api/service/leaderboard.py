@@ -15,11 +15,11 @@ async def get_leaderboard(db: Database):
 
 
 async def update_game_result(
-    db: Database, player1_id: str, player2_id: str, winner_id: str
+    db: Database, player1_id: int, player2_id: int, winner_id: int
 ):
     if player1_id == winner_id:
-        if player1_id != "unknown":
-            db.client.table("game_result").insert(
+        if player1_id != 0:
+            db.client.table("game_results").insert(
                 {
                     "player_id": player1_id,
                     "opponent_id": player2_id,
@@ -28,8 +28,8 @@ async def update_game_result(
                 }
             ).execute()
 
-        if player2_id != "unknown":
-            db.client.table("game_result").insert(
+        if player2_id != 0:
+            db.client.table("game_results").insert(
                 {
                     "player_id": player2_id,
                     "opponent_id": player1_id,
@@ -38,8 +38,8 @@ async def update_game_result(
                 }
             ).execute()
     else:
-        if player1_id != "unknown":
-            db.client.table("game_result").insert(
+        if player1_id != 0:
+            db.client.table("game_results").insert(
                 {
                     "player_id": player1_id,
                     "opponent_id": player2_id,
@@ -48,8 +48,8 @@ async def update_game_result(
                 }
             ).execute()
 
-        if player2_id != "unknown":
-            db.client.table("game_result").insert(
+        if player2_id != 0:
+            db.client.table("game_results").insert(
                 {
                     "player_id": player2_id,
                     "opponent_id": player1_id,

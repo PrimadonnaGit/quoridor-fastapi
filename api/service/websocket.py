@@ -239,7 +239,7 @@ class WebsocketConnectionManager:
             # 게임 종료 시그널
             await self.stop_countdown(room_number)
 
-            winner_id: str | None = message["server_info"]["data"]["winner_id"]
+            winner_id: int | None = message["server_info"]["data"]["winner_id"]
 
             # 패자가 전달한 메세지는 무시
             if not winner_id:
