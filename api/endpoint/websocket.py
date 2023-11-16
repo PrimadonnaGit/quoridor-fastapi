@@ -23,7 +23,6 @@ async def websocket_endpoint(websocket: WebSocket):
             )
 
     except (WebSocketDisconnect, ConnectionClosedError, ConnectionClosedOK):
-        logging.info("ws, client disconnected")
         await manager.stop_countdown(room_number)
         await manager.disconnect(websocket, room_number)
     except Exception as e:
@@ -42,7 +41,6 @@ async def websocket_endpoint_with_rood_id(websocket: WebSocket, room_number: int
             )
 
     except (WebSocketDisconnect, ConnectionClosedError, ConnectionClosedOK):
-        logging.info("ws, client disconnected")
         await manager.stop_countdown(room_number)
         await manager.disconnect(websocket, room_number)
     except Exception as e:

@@ -1,17 +1,18 @@
 import asyncio
 import json
 import random
-import uuid
 from collections import defaultdict
 
 from starlette.websockets import WebSocket
 
+from api.service import leaderboard as leaderboard_service
+from core.database import get_database
 from core.enum import ErrorStatus, InfoStatus, ServerMessageType
 from schemes.connection import (
     RoomInfo,
     ServerErrorScheme,
     ServerInfoScheme,
-    ServerResponse,
+    WebsocketMessageScheme,
 )
 
 
@@ -47,7 +48,7 @@ class WebsocketConnectionManager:
         ):
             try:
                 await self.broadcast_to_room(
-                    ServerResponse(
+                    WebsocketMessageScheme(
                         message_type=ServerMessageType.SERVER_INFO.value,
                         server_info=ServerInfoScheme(
                             code=InfoStatus.COUNTDOWN.value,
@@ -76,13 +77,12 @@ class WebsocketConnectionManager:
         self.rooms[room_number].current_player = client
 
         await client.send_json(
-            ServerResponse(
+            WebsocketMessageScheme(
                 message_type=ServerMessageType.SERVER_INFO.value,
                 server_info=ServerInfoScheme(
                     code=InfoStatus.CONNECTED_TO_ROOM.value,
                     message="Connected to room",
                     data={
-                        "client_id": str(uuid.uuid4()),
                         "is_your_turn": True,
                         "room_number": room_number,
                         "clients_count": len(self.rooms[room_number].clients),
@@ -104,13 +104,12 @@ class WebsocketConnectionManager:
                 self.rooms[room_number].player_heartbeats[client] = 0
 
                 await client.send_json(
-                    ServerResponse(
+                    WebsocketMessageScheme(
                         message_type=ServerMessageType.SERVER_INFO.value,
                         server_info=ServerInfoScheme(
                             code=InfoStatus.CONNECTED_TO_ROOM.value,
                             message="Connected to room",
                             data={
-                                "client_id": str(uuid.uuid4()),
                                 "is_your_turn": False,
                                 "room_number": room_number,
                                 "clients_count": len(self.rooms[room_number].clients),
@@ -120,7 +119,7 @@ class WebsocketConnectionManager:
                 )
 
                 await self.broadcast_to_room(
-                    ServerResponse(
+                    WebsocketMessageScheme(
                         message_type=ServerMessageType.SERVER_INFO.value,
                         server_info=ServerInfoScheme(
                             code=InfoStatus.READY_TO_PLAY.value,
@@ -132,7 +131,7 @@ class WebsocketConnectionManager:
             else:
                 # if room is full
                 await client.send_json(
-                    ServerResponse(
+                    WebsocketMessageScheme(
                         message_type=ServerMessageType.ERROR.value,
                         error=ServerErrorScheme(
                             code=ErrorStatus.ROOM_IS_FULL.value,
@@ -143,7 +142,7 @@ class WebsocketConnectionManager:
         else:
             # if room does not exist
             await client.send_json(
-                ServerResponse(
+                WebsocketMessageScheme(
                     message_type=ServerMessageType.ERROR.value,
                     error=ServerErrorScheme(
                         code=ErrorStatus.ROOM_DOES_NOT_EXIST.value,
@@ -154,7 +153,6 @@ class WebsocketConnectionManager:
 
     async def disconnect(self, client: WebSocket, room_number: int) -> None:
         """Disconnect client from room."""
-        print("disconnect", client, room_number, self.rooms[room_number].clients)
         if room_number in self.rooms.keys():
             if client in self.rooms[room_number].clients:
                 self.rooms[room_number].clients.remove(client)
@@ -162,7 +160,7 @@ class WebsocketConnectionManager:
                 del self.rooms[room_number]
             else:
                 await self.broadcast_to_room(
-                    ServerResponse(
+                    WebsocketMessageScheme(
                         message_type=ServerMessageType.SERVER_INFO.value,
                         server_info=ServerInfoScheme(
                             code=InfoStatus.CONNECTION_ENDED.value,
@@ -187,9 +185,12 @@ class WebsocketConnectionManager:
         )
 
     async def handle_server_info_message(self, room_number: int, message: dict) -> None:
-        if message["server_info"]["code"] == 103:
+        if message["server_info"]["code"] == InfoStatus.READY_TO_PLAY.value:
             # 게임 준비여부 확인
             self.rooms[room_number].ready_to_play += 1
+            self.rooms[room_number].player_ids.append(
+                message["server_info"]["data"]["user_id"]
+            )
 
             if self.rooms[room_number].ready_to_play == 2:
                 # 게임 시작
@@ -202,7 +203,7 @@ class WebsocketConnectionManager:
                         else False
                     )
                     await client.send_json(
-                        ServerResponse(
+                        WebsocketMessageScheme(
                             message_type=ServerMessageType.SERVER_INFO.value,
                             server_info=ServerInfoScheme(
                                 code=InfoStatus.GAME_START.value,
@@ -218,10 +219,13 @@ class WebsocketConnectionManager:
                 asyncio.create_task(self.countdown(room_number))
                 asyncio.create_task(self.heartbeat(room_number))
                 return
-        if message["server_info"]["code"] == 202:
+        if (
+            message["server_info"]["code"]
+            == InfoStatus.PLAYER_HAS_LEFT_THE_CONNECTION.value
+        ):
             # 상대방이 나갔을 때
             await self.broadcast_to_room(
-                ServerResponse(
+                WebsocketMessageScheme(
                     message_type=ServerMessageType.SERVER_INFO.value,
                     server_info=ServerInfoScheme(
                         code=InfoStatus.PLAYER_HAS_LEFT_THE_CONNECTION.value,
@@ -231,15 +235,29 @@ class WebsocketConnectionManager:
                 room_number,
             )
             return
-        if message["server_info"]["code"] == 304:
+        if message["server_info"]["code"] == InfoStatus.GAME_END.value:
             # 게임 종료 시그널
             await self.stop_countdown(room_number)
+
+            winner_id: str | None = message["server_info"]["data"]["winner_id"]
+
+            # 패자가 전달한 메세지는 무시
+            if not winner_id:
+                return
+
+            player1 = self.rooms[room_number].player_ids[0]
+            player2 = self.rooms[room_number].player_ids[1]
+
+            db = await get_database()
+            await leaderboard_service.update_game_result(
+                db, player1, player2, winner_id
+            )
 
     async def heartbeat(self, room_number: int) -> None:
         while len(self.rooms[room_number].clients) == 2:
             try:
                 await self.broadcast_to_room(
-                    ServerResponse(
+                    WebsocketMessageScheme(
                         message_type=ServerMessageType.HEARTBEAT.value,
                         server_info=ServerInfoScheme(
                             code=InfoStatus.PING.value,
@@ -251,7 +269,7 @@ class WebsocketConnectionManager:
                 for client in self.rooms[room_number].clients:
                     if self.rooms[room_number].player_heartbeats[client] > 5:
                         await self.broadcast_to_room(
-                            ServerResponse(
+                            WebsocketMessageScheme(
                                 message_type=ServerMessageType.SERVER_INFO.value,
                                 server_info=ServerInfoScheme(
                                     code=InfoStatus.PLAYER_HAS_LEFT_THE_CONNECTION.value,
@@ -276,7 +294,7 @@ class WebsocketConnectionManager:
             message = json.loads(text)
         except json.JSONDecodeError:
             await client.send_json(
-                ServerResponse(
+                WebsocketMessageScheme(
                     message_type=ServerMessageType.ERROR.value,
                     error=ServerErrorScheme(
                         code=ErrorStatus.INVALID_INPUT_FORMAT.value,
@@ -313,7 +331,7 @@ class WebsocketConnectionManager:
                 await self.switch_current_player(room_number)
             else:
                 await client.send_json(
-                    ServerResponse(
+                    WebsocketMessageScheme(
                         message_type=ServerMessageType.ERROR.value,
                         error=ServerErrorScheme(
                             code=ErrorStatus.NOT_YOUR_TURN.value,

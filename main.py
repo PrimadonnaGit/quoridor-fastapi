@@ -15,6 +15,7 @@ app.add_middleware(
         "http://localhost:3000",
         "https://quoridor-web-koreaboardgamearena.koyeb.app",
         "https://battlequoridor.com",
+        "https://www.battlequoridor.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],

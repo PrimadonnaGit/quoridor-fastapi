@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from starlette.websockets import WebSocket
 
-from core.enum import ServerMessageType
+from core.enum import ErrorStatus, InfoStatus, ServerMessageType
 
 
 class RoomInfo(BaseModel):
@@ -11,6 +11,7 @@ class RoomInfo(BaseModel):
     current_player: WebSocket | None = Field(
         description="Current player in the room", default=None
     )
+    player_ids: list[str] = Field(description="Player ids", default=[])
     histories: list[dict] = Field(description="Game history", default=[])
     ready_to_play: int = Field(description="Ready Players", default=0)
     tic: int = Field(description="Countdown", default=90)
@@ -23,17 +24,23 @@ class RoomInfo(BaseModel):
 
 
 class ServerInfoScheme(BaseModel):
-    code: int = Field(..., description="status code")
+    code: InfoStatus = Field(..., description="status code")
     message: str = Field(..., description="status message")
     data: dict | None = Field(None, description="data")
 
+    class Config:
+        use_enum_values = True
+
 
 class ServerErrorScheme(BaseModel):
-    code: int = Field(..., description="status code")
+    code: ErrorStatus = Field(..., description="status code")
     message: str = Field(..., description="status message")
 
+    class Config:
+        use_enum_values = True
 
-class ServerResponse(BaseModel):
+
+class WebsocketMessageScheme(BaseModel):
     message_type: ServerMessageType = Field(..., description="message type")
     server_info: ServerInfoScheme | None = Field(None, description="server info")
     error: ServerErrorScheme | None = Field(None, description="error")

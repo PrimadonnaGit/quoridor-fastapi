@@ -15,41 +15,45 @@ async def get_leaderboard(db: Database):
 
 
 async def update_game_result(
-    db: Database, player1_id: int, player2_id: int, winner_id: int
+    db: Database, player1_id: str, player2_id: str, winner_id: str
 ):
     if player1_id == winner_id:
-        db.client.table("game_result").insert(
-            {
-                "player_id": player1_id,
-                "opponent_id": player2_id,
-                "game_result": "win",
-                "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
-        ).execute()
+        if player1_id != "unknown":
+            db.client.table("game_result").insert(
+                {
+                    "player_id": player1_id,
+                    "opponent_id": player2_id,
+                    "game_result": "win",
+                    "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            ).execute()
 
-        db.client.table("game_result").insert(
-            {
-                "player_id": player2_id,
-                "opponent_id": player1_id,
-                "game_result": "lose",
-                "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
-        ).execute()
+        if player2_id != "unknown":
+            db.client.table("game_result").insert(
+                {
+                    "player_id": player2_id,
+                    "opponent_id": player1_id,
+                    "game_result": "lose",
+                    "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            ).execute()
     else:
-        db.client.table("game_result").insert(
-            {
-                "player_id": player1_id,
-                "opponent_id": player2_id,
-                "game_result": "lose",
-                "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
-        ).execute()
+        if player1_id != "unknown":
+            db.client.table("game_result").insert(
+                {
+                    "player_id": player1_id,
+                    "opponent_id": player2_id,
+                    "game_result": "lose",
+                    "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            ).execute()
 
-        db.client.table("game_result").insert(
-            {
-                "player_id": player2_id,
-                "opponent_id": player1_id,
-                "game_result": "win",
-                "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
-        ).execute()
+        if player2_id != "unknown":
+            db.client.table("game_result").insert(
+                {
+                    "player_id": player2_id,
+                    "opponent_id": player1_id,
+                    "game_result": "win",
+                    "played_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            ).execute()
