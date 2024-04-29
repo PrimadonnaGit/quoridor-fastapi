@@ -1,1 +1,1 @@
-# qurido
+# quoridor

@@ -238,7 +238,8 @@ class WebsocketConnectionManager:
         if message["server_info"]["code"] == InfoStatus.GAME_END.value:
             # 게임 종료 시그널
             await self.stop_countdown(room_number)
-
+            
+            # 게임 결과 업데이트
             winner_id: int | None = message["server_info"]["data"]["winner_id"]
 
             # 패자가 전달한 메세지는 무시
