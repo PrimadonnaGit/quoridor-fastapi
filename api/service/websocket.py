@@ -249,10 +249,10 @@ class WebsocketConnectionManager:
             player1 = self.rooms[room_number].player_ids[0]
             player2 = self.rooms[room_number].player_ids[1]
 
-            db = await get_database()
-            await leaderboard_service.update_game_result(
-                db, player1, player2, winner_id
-            )
+            # db = await get_database()
+            # await leaderboard_service.update_game_result(
+            #     db, player1, player2, winner_id
+            # )
 
     async def heartbeat(self, room_number: int) -> None:
         while len(self.rooms[room_number].clients) == 2:
