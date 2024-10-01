@@ -26,7 +26,8 @@ app.include_router(api_router)
 
 @app.on_event("startup")
 async def startup_event():
-    await create_supabase_client()
+    # await create_supabase_client()
+    pass
 
 
 @app.on_event("shutdown")
